@@ -28,6 +28,10 @@ class ScanConfig:
     redact_secrets: bool = True
     include_line_numbers: bool = True
     scan_source_files: bool = True
+    # If true, when package.json exists but no lockfile, try to generate a package-lock.json
+    # in a temporary directory to allow `npm audit` to run. This can be slower and requires
+    # network access — set to False to disable.
+    generate_lockfile: bool = True
     
     # Scanner toggles
     enable_trufflehog: bool = True
@@ -259,7 +263,15 @@ def temp_repo_context(repo_url: str, config: ScanConfig):
     repo_path = os.path.join(config.base_path, repo_name)
     
     try:
-        os.makedirs(config.base_path, exist_ok=True)
+        # Ensure base directory exists; handle race conditions
+        try:
+            os.makedirs(config.base_path, exist_ok=True)
+        except FileExistsError:
+            # Race condition: another process created it between check and creation
+            if not os.path.isdir(config.base_path):
+                raise
+            pass
+        
         yield repo_path
     finally:
         # Cleanup
@@ -581,7 +593,7 @@ def check_tool_version(tool_name: str) -> Optional[str]:
 
 def scan_python_dependencies(repo_path: str, config: ScanConfig) -> Dict:
     """Scan Python dependencies with pip-audit and safety"""
-    results = {"status": "not_applicable", "findings": [], "errors": []}
+    results = {"status": "not_applicable", "findings": [], "errors": [], "applicable": False}
     
     req_files = [
         "requirements.txt",
@@ -593,7 +605,10 @@ def scan_python_dependencies(repo_path: str, config: ScanConfig) -> Dict:
     found_files = [f for f in req_files if os.path.exists(os.path.join(repo_path, f))]
     
     if not found_files:
+        results["applicable"] = False
         return results
+
+    results["applicable"] = True
     
     results["status"] = "scanned"
     results["files"] = found_files
@@ -611,7 +626,9 @@ def scan_python_dependencies(repo_path: str, config: ScanConfig) -> Dict:
                         text=True,
                         timeout=config.default_timeout
                     )
-                    
+                    if result.returncode != 0 and result.stderr:
+                        results["errors"].append(f"pip-audit error for {req_file}: {result.stderr.strip()}")
+
                     if result.stdout:
                         try:
                             data = json.loads(result.stdout)
@@ -644,7 +661,9 @@ def scan_python_dependencies(repo_path: str, config: ScanConfig) -> Dict:
                         text=True,
                         timeout=config.default_timeout
                     )
-                    
+                    if result.returncode != 0 and result.stderr:
+                        results["errors"].append(f"safety error for {req_file}: {result.stderr.strip()}")
+
                     if result.stdout:
                         try:
                             data = json.loads(result.stdout)
@@ -654,7 +673,7 @@ def scan_python_dependencies(repo_path: str, config: ScanConfig) -> Dict:
                                 "vulnerabilities": data
                             })
                         except json.JSONDecodeError:
-                            pass
+                            results["errors"].append(f"safety output not JSON for {req_file}")
             else:
                 results["errors"].append("safety not installed")
         except Exception as e:
@@ -664,48 +683,86 @@ def scan_python_dependencies(repo_path: str, config: ScanConfig) -> Dict:
 
 def scan_node_dependencies(repo_path: str, config: ScanConfig) -> Dict:
     """Scan Node.js dependencies"""
-    results = {"status": "not_applicable", "findings": [], "errors": []}
-    
+    results = {"status": "not_applicable", "findings": [], "errors": [], "applicable": False}
+
     package_json = os.path.join(repo_path, "package.json")
     if not os.path.exists(package_json):
+        results["applicable"] = False
         return results
-    
+
+    results["applicable"] = True
     results["status"] = "scanned"
-    
     # npm audit
     if config.enable_npm_audit:
         try:
             npm = shutil.which("npm")
             if npm:
                 logger.info("Running npm audit...")
-                
-                # Install dependencies first (in temp location)
                 result = subprocess.run(
                     [npm, "audit", "--json"],
                     cwd=repo_path,
                     capture_output=True,
                     text=True,
-                    timeout=config.default_timeout
+                    timeout=config.default_timeout,
                 )
-                
+
+                performed_audit = False
+                if result.returncode != 0 and result.stderr:
+                    results["errors"].append(f"npm audit error: {result.stderr.strip()}")
+
                 if result.stdout:
                     try:
                         data = json.loads(result.stdout)
                         results["findings"].append({
                             "tool": "npm-audit",
                             "vulnerabilities": data.get("vulnerabilities", {}),
-                            "metadata": data.get("metadata", {})
+                            "metadata": data.get("metadata", {}),
                         })
+                        performed_audit = True
                     except json.JSONDecodeError:
-                        results["findings"].append({
-                            "tool": "npm-audit",
-                            "output": result.stdout
-                        })
+                        results["findings"].append({"tool": "npm-audit", "output": result.stdout})
+
+                # Fallback: try generating a package-lock.json in a temp dir and re-run audit
+                if not performed_audit and config.generate_lockfile:
+                    try:
+                        import tempfile
+                        tmp = tempfile.mkdtemp(prefix="npm-audit-")
+                        shutil.copy(package_json, os.path.join(tmp, "package.json"))
+                        pkg_lock = os.path.join(repo_path, "package-lock.json")
+                        if os.path.exists(pkg_lock):
+                            shutil.copy(pkg_lock, os.path.join(tmp, "package-lock.json"))
+
+                        gen = subprocess.run([npm, "install", "--package-lock-only"], cwd=tmp, capture_output=True, text=True, timeout=config.default_timeout)
+                        if gen.returncode != 0:
+                            if gen.stderr:
+                                results["errors"].append(f"npm lockfile generation failed: {gen.stderr.strip()}")
+                        else:
+                            aud = subprocess.run([npm, "audit", "--json"], cwd=tmp, capture_output=True, text=True, timeout=config.default_timeout)
+                            if aud.returncode == 0 and aud.stdout:
+                                try:
+                                    data = json.loads(aud.stdout)
+                                    results["findings"].append({
+                                        "tool": "npm-audit",
+                                        "vulnerabilities": data.get("vulnerabilities", {}),
+                                        "metadata": data.get("metadata", {}),
+                                    })
+                                    performed_audit = True
+                                except json.JSONDecodeError:
+                                    results["errors"].append("npm audit (temp) output not JSON")
+                            else:
+                                if aud.stderr:
+                                    results["errors"].append(f"npm audit (temp) failed: {aud.stderr.strip()}")
+                        try:
+                            shutil.rmtree(tmp, ignore_errors=True)
+                        except Exception:
+                            pass
+                    except Exception as e:
+                        results["errors"].append(f"npm audit fallback failed: {str(e)}")
             else:
                 results["errors"].append("npm not installed")
         except Exception as e:
             results["errors"].append(f"npm audit failed: {str(e)}")
-    
+
     # Snyk
     if config.enable_snyk:
         try:
@@ -713,10 +770,8 @@ def scan_node_dependencies(repo_path: str, config: ScanConfig) -> Dict:
             run_cmd = None
             if snyk:
                 run_cmd = [snyk, "test", "--json"]
-            else:
-                # try npx fallback if npm available
-                if shutil.which('npx') or shutil.which('npm'):
-                    run_cmd = ['npx', '--yes', 'snyk', 'test', '--json']
+            elif shutil.which("npx") or shutil.which("npm"):
+                run_cmd = ["npx", "--yes", "snyk", "test", "--json"]
 
             if run_cmd:
                 logger.info("Running Snyk test...")
@@ -725,16 +780,13 @@ def scan_node_dependencies(repo_path: str, config: ScanConfig) -> Dict:
                     cwd=repo_path,
                     capture_output=True,
                     text=True,
-                    timeout=config.default_timeout
+                    timeout=config.default_timeout,
                 )
 
                 if result.stdout:
                     try:
                         data = json.loads(result.stdout)
-                        results["findings"].append({
-                            "tool": "snyk",
-                            "vulnerabilities": data.get("vulnerabilities", [])
-                        })
+                        results["findings"].append({"tool": "snyk", "vulnerabilities": data.get("vulnerabilities", [])})
                     except json.JSONDecodeError:
                         results["findings"].append({"tool": "snyk", "output": result.stdout})
             else:
@@ -744,12 +796,22 @@ def scan_node_dependencies(repo_path: str, config: ScanConfig) -> Dict:
     
     return results
 
+
 def scan_code_quality(repo_path: str, config: ScanConfig) -> Dict:
     """Scan code quality with Semgrep and Bandit"""
-    results = {"findings": [], "errors": []}
+    results = {"findings": [], "errors": [], "applicable": False}
     
     # Semgrep
-    if config.enable_semgrep:
+    # Determine if code-quality scanning is applicable (any source files present)
+    source_files = False
+    for ext in SOURCE_EXTENSIONS:
+        if list(Path(repo_path).rglob(f"*{ext}")):
+            source_files = True
+            break
+    if source_files:
+        results["applicable"] = True
+
+    if config.enable_semgrep and source_files:
         try:
             semgrep = shutil.which("semgrep")
             # Prefer system semgrep, else try python -m semgrep, else try npx

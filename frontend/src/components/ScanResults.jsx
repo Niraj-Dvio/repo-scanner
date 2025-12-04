@@ -169,44 +169,49 @@ export default function ScanResults({ data }) {
         {activeTab === "dependencies" && (
           <div className="space-y-3">
             {/* Python */}
-            {dependencies?.python && (
+            {dependencies?.python?.applicable && (
               <div className="border border-white/10 rounded-lg p-3 bg-white/5">
                 <h4 className="text-sm font-bold text-blue-300 mb-2">
-                  🐍 Python
+                  🐍 Python Dependencies
                 </h4>
-                {dependencies.python.status === "not_applicable" ? (
-                  <p className="text-xs text-gray-400">
-                    No Python project detected
-                  </p>
-                ) : dependencies.python.errors?.length > 0 ? (
-                  <div className="text-xs text-yellow-400">
-                    {dependencies.python.errors[0]}
+                {dependencies.python.errors?.length > 0 ? (
+                  <div className="space-y-1 text-xs text-yellow-300">
+                    {dependencies.python.errors.map((error, idx) => (
+                      <p key={idx}>⚠️ {error}</p>
+                    ))}
+                  </div>
+                ) : dependencies.python.findings?.length > 0 ? (
+                  <div className="text-xs text-orange-300">
+                    🔍 {dependencies.python.findings.length} vulnerabilities
+                    found
                   </div>
                 ) : (
                   <p className="text-xs text-green-400">
-                    ✅ Dependencies scanned
+                    ✅ No vulnerabilities detected
                   </p>
                 )}
               </div>
             )}
 
             {/* Node.js */}
-            {dependencies?.node && (
+            {dependencies?.node?.applicable && (
               <div className="border border-white/10 rounded-lg p-3 bg-white/5">
                 <h4 className="text-sm font-bold text-yellow-300 mb-2">
-                  📦 Node.js
+                  📦 Node.js Dependencies
                 </h4>
-                {dependencies.node.status === "not_applicable" ? (
-                  <p className="text-xs text-gray-400">
-                    No Node.js project detected
-                  </p>
-                ) : dependencies.node.errors?.length > 0 ? (
-                  <div className="text-xs text-yellow-400">
-                    {dependencies.node.errors[0]}
+                {dependencies.node.errors?.length > 0 ? (
+                  <div className="space-y-1 text-xs text-yellow-300">
+                    {dependencies.node.errors.map((error, idx) => (
+                      <p key={idx}>⚠️ {error}</p>
+                    ))}
+                  </div>
+                ) : dependencies.node.findings?.length > 0 ? (
+                  <div className="text-xs text-orange-300">
+                    🔍 {dependencies.node.findings.length} vulnerabilities found
                   </div>
                 ) : (
                   <p className="text-xs text-green-400">
-                    ✅ Dependencies scanned
+                    ✅ No vulnerabilities detected
                   </p>
                 )}
               </div>
@@ -238,25 +243,45 @@ export default function ScanResults({ data }) {
         {/* Code Quality Tab */}
         {activeTab === "code" && (
           <div className="space-y-2">
-            {dependencies?.code_quality &&
-            dependencies.code_quality.errors?.length > 0 ? (
-              <div className="bg-yellow-500/20 border border-yellow-500 rounded-lg p-3">
-                <p className="text-yellow-300 text-sm font-semibold">
-                  ⚠️ Code Quality Scan Status
-                </p>
-                <div className="mt-2 space-y-1 text-xs text-yellow-300/80">
-                  {dependencies.code_quality.errors.map((error, idx) => (
-                    <p key={idx}>• {error}</p>
-                  ))}
+            {dependencies?.code_quality?.applicable ? (
+              dependencies.code_quality.errors?.length > 0 ? (
+                <div className="bg-yellow-500/20 border border-yellow-500 rounded-lg p-3">
+                  <p className="text-yellow-300 text-sm font-semibold">
+                    ⚠️ Code Quality Scan Issues
+                  </p>
+                  <div className="mt-2 space-y-1 text-xs text-yellow-300/80">
+                    {dependencies.code_quality.errors.map((error, idx) => (
+                      <p key={idx}>• {error}</p>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : dependencies.code_quality.findings?.length > 0 ? (
+                <div className="bg-orange-500/20 border border-orange-500 rounded-lg p-3">
+                  <p className="text-orange-300 text-sm font-semibold">
+                    🔍 {dependencies.code_quality.findings.length} Code Quality
+                    Issue(s)
+                  </p>
+                  <p className="text-orange-300/70 text-xs mt-1">
+                    Review findings for improvements
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-green-500/20 border border-green-500 rounded-lg p-4 text-center">
+                  <p className="text-green-300 font-semibold">
+                    ✅ Code Quality Clean
+                  </p>
+                  <p className="text-green-300/70 text-sm mt-1">
+                    No critical code quality issues detected
+                  </p>
+                </div>
+              )
             ) : (
-              <div className="bg-green-500/20 border border-green-500 rounded-lg p-4 text-center">
-                <p className="text-green-300 font-semibold">
-                  ✅ Code Quality Analysis
+              <div className="bg-gray-500/20 border border-gray-500 rounded-lg p-4 text-center">
+                <p className="text-gray-300 font-semibold">
+                  ℹ️ Code Quality Not Applicable
                 </p>
-                <p className="text-green-300/70 text-sm mt-1">
-                  No critical code quality issues detected
+                <p className="text-gray-300/70 text-sm mt-1">
+                  No Python or JavaScript source files detected
                 </p>
               </div>
             )}

@@ -9,6 +9,7 @@ import logging
 from datetime import datetime
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import threading
 import os
 import json
 
@@ -58,9 +59,21 @@ app.add_middleware(
 )
 
 # ---------------- In-Memory Storage for Scan Results ----------------
+# Locks to prevent concurrent scans of the same repo
+scan_locks: Dict[str, threading.Lock] = {}
+locks_mutex = threading.Lock()
 scan_results_cache: Dict[str, Dict] = {}
 scan_status_cache: Dict[str, str] = {}
 scan_repo_path: Dict[str, str] = {}
+
+
+def get_repo_lock(repo_name: str) -> threading.Lock:
+    """Get or create a lock for a specific repository"""
+    with locks_mutex:
+        if repo_name not in scan_locks:
+            scan_locks[repo_name] = threading.Lock()
+        return scan_locks[repo_name]
+
 
 # ---------------- Database (optional) ----------------
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@db:5432/scanner")
@@ -324,7 +337,17 @@ def scan_repo_legacy(scan_req: ScanRequest):
 # ---------------- SCAN REPO (New - Asynchronous) ----------------
 def run_scan_background(scan_id: str, repo_url: str, config: ScanConfig):
     """Background task to run repository scan"""
+    repo_name = sanitize_repo_name(repo_url)
+    lock = get_repo_lock(repo_name)
+    
     try:
+        # Acquire lock to prevent concurrent scans of the same repo
+        if not lock.acquire(blocking=False):
+            logger.warning(f"Scan {scan_id} for {repo_name} already in progress, queuing...")
+            scan_status_cache[scan_id] = "queued"
+            # Wait for lock (blocking)
+            lock.acquire()
+        
         scan_status_cache[scan_id] = "scanning"
         logger.info(f"Background scan started for {scan_id}")
         
@@ -350,6 +373,9 @@ def run_scan_background(scan_id: str, repo_url: str, config: ScanConfig):
             "error": str(e),
             "status": "failed"
         }
+    finally:
+        # Release lock
+        lock.release()
 
 @app.post("/scan", response_model=ScanResponse)
 async def scan_repo_async(scan_req: ScanRequest, background_tasks: BackgroundTasks):
