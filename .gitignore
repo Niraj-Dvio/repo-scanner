@@ -2,3 +2,5 @@
 /frontend/node_modules/
 pgdata/
 tmp_debug_repo/
+repos/
+backend/security_scan.log
