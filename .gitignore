@@ -1,2 +1,4 @@
 /backend/__pycache__/
 /frontend/node_modules/
+pgdata/
+tmp_debug_repo/

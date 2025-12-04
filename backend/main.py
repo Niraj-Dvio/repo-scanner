@@ -9,6 +9,13 @@ import logging
 from datetime import datetime
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import os
+import json
+
+# SQLAlchemy for optional persistence
+from sqlalchemy import create_engine, Column, String, DateTime, JSON as SAJSON
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 # Import from enhanced scanner
 from scanner import (
@@ -17,6 +24,7 @@ from scanner import (
     validate_repo_url,
     sanitize_repo_name,
     setup_logging,
+    BASE_PATH,
     # Backward compatible imports
     clone_repo,
     run_secret_scan_legacy,
@@ -52,6 +60,102 @@ app.add_middleware(
 # ---------------- In-Memory Storage for Scan Results ----------------
 scan_results_cache: Dict[str, Dict] = {}
 scan_status_cache: Dict[str, str] = {}
+scan_repo_path: Dict[str, str] = {}
+
+# ---------------- Database (optional) ----------------
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@db:5432/scanner")
+engine = None
+SessionLocal = None
+Base = declarative_base()
+
+
+class ScanModel(Base):
+    __tablename__ = 'scans'
+    scan_id = Column(String, primary_key=True, index=True)
+    repo_url = Column(String, nullable=True)
+    status = Column(String, nullable=True)
+    result = Column(SAJSON, nullable=True)
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+
+def init_db():
+    global engine, SessionLocal
+    try:
+        engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+        SessionLocal = sessionmaker(bind=engine)
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database initialized")
+    except Exception as e:
+        logger.error(f"Database init failed: {e}")
+
+
+def save_scan_to_db(scan_id: str, repo_url: str = None, status: str = None, result: Dict = None):
+    if SessionLocal is None:
+        return
+    session = None
+    try:
+        session = SessionLocal()
+        now = datetime.utcnow()
+        obj = session.query(ScanModel).filter(ScanModel.scan_id == scan_id).one_or_none()
+        if obj is None:
+            obj = ScanModel(scan_id=scan_id, repo_url=repo_url, status=status, result=result, created_at=now, updated_at=now)
+            session.add(obj)
+        else:
+            if repo_url is not None:
+                obj.repo_url = repo_url
+            if status is not None:
+                obj.status = status
+            if result is not None:
+                obj.result = result
+            obj.updated_at = now
+        session.commit()
+    except Exception as e:
+        logger.error(f"Failed to save scan to DB: {e}")
+    finally:
+        if session:
+            session.close()
+
+
+def get_scan_from_db(scan_id: str):
+    if SessionLocal is None:
+        return None
+    session = None
+    try:
+        session = SessionLocal()
+        obj = session.query(ScanModel).filter(ScanModel.scan_id == scan_id).one_or_none()
+        if obj:
+            return {
+                "scan_id": obj.scan_id,
+                "repo_url": obj.repo_url,
+                "status": obj.status,
+                "result": obj.result,
+                "created_at": obj.created_at.isoformat() if obj.created_at else None,
+                "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
+            }
+    except Exception as e:
+        logger.error(f"Failed to read scan from DB: {e}")
+    finally:
+        if session:
+            session.close()
+    return None
+
+
+def delete_scan_from_db(scan_id: str):
+    if SessionLocal is None:
+        return
+    session = None
+    try:
+        session = SessionLocal()
+        obj = session.query(ScanModel).filter(ScanModel.scan_id == scan_id).one_or_none()
+        if obj:
+            session.delete(obj)
+            session.commit()
+    except Exception as e:
+        logger.error(f"Failed to delete scan from DB: {e}")
+    finally:
+        if session:
+            session.close()
 
 # Thread pool for background scans
 executor = ThreadPoolExecutor(max_workers=3)
@@ -226,11 +330,17 @@ def run_scan_background(scan_id: str, repo_url: str, config: ScanConfig):
         
         # Run the scan
         result = scan_repository(repo_url, config)
-        
-        # Store results
+
+        # Store results (in-memory)
         scan_results_cache[scan_id] = result.to_dict()
         scan_status_cache[scan_id] = "completed"
-        
+
+        # Persist to DB if available
+        try:
+            save_scan_to_db(scan_id, repo_url=repo_url, status="completed", result=scan_results_cache[scan_id])
+        except Exception as e:
+            logger.error(f"Error persisting scan {scan_id} to DB: {e}")
+
         logger.info(f"Background scan completed for {scan_id}")
         
     except Exception as e:
@@ -263,12 +373,17 @@ async def scan_repo_async(scan_req: ScanRequest, background_tasks: BackgroundTas
         
         # Initialize status
         scan_status_cache[scan_id] = "queued"
-        
+        # Persist queued state in DB
+        try:
+            save_scan_to_db(scan_id, repo_url=scan_req.repo_url, status="queued", result=None)
+        except Exception:
+            logger.debug(f"Unable to persist queued scan {scan_id} to DB")
+
         # Submit to background
         background_tasks.add_task(run_scan_background, scan_id, scan_req.repo_url, config)
-        
+
         logger.info(f"Scan queued: {scan_id}")
-        
+
         return ScanResponse(
             scan_id=scan_id,
             status="queued",
@@ -282,10 +397,15 @@ async def scan_repo_async(scan_req: ScanRequest, background_tasks: BackgroundTas
 @app.get("/scan/{scan_id}/status")
 def get_scan_status(scan_id: str):
     """Get the status of a scan"""
-    if scan_id not in scan_status_cache:
-        raise HTTPException(status_code=404, detail="Scan ID not found")
-    
-    status = scan_status_cache[scan_id]
+    # Prefer in-memory cache
+    if scan_id in scan_status_cache:
+        status = scan_status_cache[scan_id]
+    else:
+        # Fallback to DB
+        db_row = get_scan_from_db(scan_id)
+        if db_row is None:
+            raise HTTPException(status_code=404, detail="Scan ID not found")
+        status = db_row.get("status")
     response = {
         "scan_id": scan_id,
         "status": status,
@@ -306,27 +426,46 @@ def get_scan_status(scan_id: str):
 @app.get("/scan/{scan_id}/result")
 def get_scan_result(scan_id: str):
     """Retrieve scan results"""
-    if scan_id not in scan_results_cache:
-        if scan_id in scan_status_cache:
-            status = scan_status_cache[scan_id]
-            if status in ["queued", "scanning"]:
-                raise HTTPException(
-                    status_code=202,
-                    detail=f"Scan still {status}. Please wait and try again."
-                )
-        raise HTTPException(status_code=404, detail="Scan results not found")
-    
-    return scan_results_cache[scan_id]
+    # Prefer in-memory result
+    if scan_id in scan_results_cache:
+        return scan_results_cache[scan_id]
+
+    # Fallback to DB
+    db_row = get_scan_from_db(scan_id)
+    if db_row:
+        if db_row.get("status") in ["queued", "scanning"]:
+            raise HTTPException(status_code=202, detail=f"Scan still {db_row.get('status')}. Please wait and try again.")
+        return db_row.get("result")
+
+    raise HTTPException(status_code=404, detail="Scan results not found")
 
 @app.delete("/scan/{scan_id}")
 def delete_scan_result(scan_id: str):
     """Delete scan results from cache"""
-    if scan_id not in scan_results_cache and scan_id not in scan_status_cache:
+    if scan_id not in scan_results_cache and scan_id not in scan_status_cache and get_scan_from_db(scan_id) is None:
         raise HTTPException(status_code=404, detail="Scan ID not found")
-    
+
+    # Remove in-memory caches
     scan_results_cache.pop(scan_id, None)
     scan_status_cache.pop(scan_id, None)
-    
+
+    # Remove DB row if present
+    try:
+        delete_scan_from_db(scan_id)
+    except Exception:
+        logger.debug(f"Failed to delete DB row for {scan_id}")
+
+    # Try to remove any cloned repository folder under BASE_PATH matching the scan_id prefix
+    try:
+        # scan_id format: {repo_name}_{timestamp}
+        repo_name_part = scan_id.rsplit('_', 1)[0]
+        repo_path = os.path.join(BASE_PATH, repo_name_part)
+        if os.path.exists(repo_path) and os.path.isdir(repo_path):
+            shutil.rmtree(repo_path, ignore_errors=True)
+            logger.info(f"Removed repo directory: {repo_path}")
+    except Exception as e:
+        logger.error(f"Error removing repo path for {scan_id}: {e}")
+
     return {"message": f"Scan {scan_id} deleted successfully"}
 
 @app.get("/scans")
@@ -358,6 +497,8 @@ async def global_exception_handler(request, exc):
 async def startup_event():
     logger.info("Repository Security Scanner API starting up...")
     logger.info(f"CORS enabled for: {origins}")
+    # Initialize DB if configured
+    init_db()
 
 @app.on_event("shutdown")
 async def shutdown_event():

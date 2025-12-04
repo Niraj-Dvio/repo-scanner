@@ -4,3 +4,6 @@ requests
 gitpython
 toml
 pip-audit
+sqlalchemy
+psycopg2-binary
+semgrep

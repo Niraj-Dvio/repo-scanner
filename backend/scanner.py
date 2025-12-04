@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import logging
 import hashlib
+import sys
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -26,6 +27,7 @@ class ScanConfig:
     log_level: str = "INFO"
     redact_secrets: bool = True
     include_line_numbers: bool = True
+    scan_source_files: bool = True
     
     # Scanner toggles
     enable_trufflehog: bool = True
@@ -63,6 +65,12 @@ SENSITIVE_EXTENSIONS = {
     ".properties", ".credentials", ".config", ".yaml", ".yml",
     ".json", ".xml", ".ini", ".toml", ".conf"
 }
+
+# Include some common source/config extensions that often contain hard-coded keys
+SENSITIVE_EXTENSIONS.update({'.java', '.gradle'})
+
+# Optional set of common source extensions to search for secrets in code
+SOURCE_EXTENSIONS = {'.py', '.js', '.ts', '.java', '.go', '.rb', '.php', '.cs', '.scala', '.kt', '.swift', '.cpp', '.c'}
 
 SENSITIVE_FILENAMES = {
     ".env", ".env.local", ".env.production", ".env.development",
@@ -111,6 +119,9 @@ SECRET_PATTERNS = [
     
     # Base64 encoded secrets (heuristic)
     (re.compile(r"(?i)(secret|password|key|token)\s*[:=]\s*['\"]?([A-Za-z0-9+/]{40,}={0,2})"), "Base64 Encoded Secret"),
+
+    # Generic key-value pattern (properties/YAML) - more permissive on length and accepts dot/underscore/dash
+    (re.compile(r"(?i)(?:[\w\.-]*\.)?(?:api[-_.]?key|apikey|apisecret|client[_\-.]?secret|access[_\-.]?token|access_token|client_secret|secret[-_]?key|secretkey|token|password|pwd)\s*[:=]\s*['\"]?([A-Za-z0-9\-_.+\/=]{4,200})"), "Generic Key-Value"),
 ]
 
 ALLOWED_URL_SCHEMES = {'http', 'https', 'git', 'ssh'}
@@ -135,9 +146,16 @@ class SecretFinding:
     pattern: str
     context: str  # Redacted context
     severity: str = "HIGH"
+    start: int = 0
+    end: int = 0
+    matched_value: str = ""
     
     def to_dict(self):
-        return asdict(self)
+        d = asdict(self)
+        # ensure matched_value not too large
+        if isinstance(d.get('matched_value'), str) and len(d.get('matched_value', '')) > 200:
+            d['matched_value'] = d['matched_value'][:200] + '...'
+        return d
 
 @dataclass
 class ScanResult:
@@ -328,23 +346,40 @@ def scan_file_for_secrets(
         # Check each line
         for line_num, line in enumerate(lines, 1):
             for pattern, secret_type in SECRET_PATTERNS:
-                matches = pattern.finditer(line)
-                for match in matches:
-                    # Redact the secret
+                for match in pattern.finditer(line):
+                    try:
+                        # Prefer capturing group value if present
+                        if match.lastindex:
+                            start, end = match.span(match.lastindex)
+                            matched_value = match.group(match.lastindex)
+                        else:
+                            start, end = match.span()
+                            matched_value = match.group(0)
+                    except Exception:
+                        start, end = match.span()
+                        matched_value = match.group(0)
+
+                    # Redact only the secret value portion when possible
                     if config.redact_secrets:
-                        context = line[:match.start()] + redact_secret(
-                            line, match.start(), match.end()
-                        ) + line[match.end():]
+                        try:
+                            redacted = redact_secret(line, start, end)
+                            context = line[:start] + redacted + line[end:]
+                        except Exception:
+                            context = line
                     else:
                         context = line
-                    
+
+                    # Build finding including match span and matched_value
                     finding = SecretFinding(
                         file_path=os.path.relpath(filepath, repo_path),
                         line_number=line_num if config.include_line_numbers else 0,
                         secret_type=secret_type,
-                        pattern=pattern.pattern[:50],  # Truncate pattern
+                        pattern=pattern.pattern[:200],  # keep a longer pattern fragment for context
                         context=context.strip(),
-                        severity="HIGH" if "password" in secret_type.lower() or "key" in secret_type.lower() else "MEDIUM"
+                        severity=("HIGH" if "password" in secret_type.lower() or "key" in secret_type.lower() or "token" in secret_type.lower() else "MEDIUM"),
+                        start=start,
+                        end=end,
+                        matched_value=matched_value
                     )
                     findings.append(finding)
         
@@ -419,8 +454,10 @@ def run_secret_scan(repo_path: str, config: ScanConfig) -> Dict:
             filename_lower = file.lower()
             ext = os.path.splitext(file)[1].lower()
             
+            # Add file if it's a known sensitive extension or filename, or (optionally) a common source file
             if (ext in SENSITIVE_EXTENSIONS or 
-                any(sens in filename_lower for sens in SENSITIVE_FILENAMES)):
+                any(sens in filename_lower for sens in SENSITIVE_FILENAMES) or
+                (config.scan_source_files and ext in SOURCE_EXTENSIONS)):
                 files_to_scan.append(filepath)
     
     logger.info(f"Scanning {len(files_to_scan)} sensitive files...")
@@ -451,14 +488,45 @@ def run_secret_scan(repo_path: str, config: ScanConfig) -> Dict:
                 logger.error(f"Error scanning {filepath}: {e}")
                 errors.append(f"Scan error in {filepath}: {str(e)}")
     
-    # Deduplicate findings
+    # Deduplicate findings by merging overlapping spans on the same file/line.
+    # For overlapping/identical spans, keep the most specific finding.
+    def specificity_score(f: SecretFinding) -> int:
+        s = 0
+        t = f.secret_type.lower() if f.secret_type else ''
+        providers = ('google', 'aws', 'github', 'stripe', 'slack', 'jwt', 'mongodb', 'postgres', 'postgresql')
+        if any(p in t for p in providers):
+            s += 100
+        try:
+            s += len(f.matched_value or '')
+        except Exception:
+            pass
+        if 'generic' in t or 'key-value' in t or 'possible' in t:
+            s -= 10
+        return s
+
+    grouped = {}
+    for f in all_findings:
+        grouped.setdefault((f.file_path, f.line_number), []).append(f)
+
     unique_findings = []
-    seen = set()
-    for finding in all_findings:
-        key = (finding.file_path, finding.line_number, finding.secret_type)
-        if key not in seen:
-            seen.add(key)
-            unique_findings.append(finding)
+    for (fp, ln), items in grouped.items():
+        # sort by start position
+        items.sort(key=lambda x: (x.start, x.end))
+        kept = []
+        for item in items:
+            replaced = False
+            for idx, existing in enumerate(kept):
+                # check overlap
+                if not (item.end <= existing.start or item.start >= existing.end):
+                    # overlapping spans: pick the more specific
+                    if specificity_score(item) > specificity_score(existing):
+                        kept[idx] = item
+                    replaced = True
+                    break
+            if not replaced:
+                kept.append(item)
+
+        unique_findings.extend(kept)
     
     logger.info(f"Found {len(unique_findings)} unique secrets")
     
@@ -474,16 +542,40 @@ def check_tool_version(tool_name: str) -> Optional[str]:
     """Check if tool is installed and get version"""
     try:
         tool_path = shutil.which(tool_name)
-        if not tool_path:
-            return None
-        
-        result = subprocess.run(
-            [tool_path, "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        return result.stdout.strip().split('\n')[0]
+        if tool_path:
+            try:
+                result = subprocess.run(
+                    [tool_path, "--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result and result.stdout:
+                    return result.stdout.strip().split('\n')[0]
+            except Exception:
+                pass
+
+        # Fallbacks: try python -m <tool> (for semgrep) or use npx if npm is available
+        if tool_name == 'semgrep':
+            try:
+                result = subprocess.run([sys.executable, '-m', 'semgrep', '--version'], capture_output=True, text=True, timeout=10)
+                if result and result.stdout:
+                    return result.stdout.strip().split('\n')[0]
+            except Exception:
+                pass
+
+        # Try using npx if available (useful for snyk and other npm-based CLIs)
+        npx_path = shutil.which('npx') or shutil.which('npm')
+        if npx_path:
+            try:
+                # Use npx to run the tool's version command; allow network install if needed
+                result = subprocess.run(['npx', '--yes', tool_name, '--version'], capture_output=True, text=True, timeout=20)
+                if result and result.returncode == 0 and result.stdout:
+                    return result.stdout.strip().split('\n')[0]
+            except Exception:
+                pass
+
+        return None
     except Exception:
         return None
 
@@ -618,16 +710,24 @@ def scan_node_dependencies(repo_path: str, config: ScanConfig) -> Dict:
     if config.enable_snyk:
         try:
             snyk = shutil.which("snyk")
+            run_cmd = None
             if snyk:
+                run_cmd = [snyk, "test", "--json"]
+            else:
+                # try npx fallback if npm available
+                if shutil.which('npx') or shutil.which('npm'):
+                    run_cmd = ['npx', '--yes', 'snyk', 'test', '--json']
+
+            if run_cmd:
                 logger.info("Running Snyk test...")
                 result = subprocess.run(
-                    [snyk, "test", "--json"],
+                    run_cmd,
                     cwd=repo_path,
                     capture_output=True,
                     text=True,
                     timeout=config.default_timeout
                 )
-                
+
                 if result.stdout:
                     try:
                         data = json.loads(result.stdout)
@@ -636,9 +736,9 @@ def scan_node_dependencies(repo_path: str, config: ScanConfig) -> Dict:
                             "vulnerabilities": data.get("vulnerabilities", [])
                         })
                     except json.JSONDecodeError:
-                        pass
+                        results["findings"].append({"tool": "snyk", "output": result.stdout})
             else:
-                results["errors"].append("snyk not installed")
+                results["errors"].append("snyk not installed. Install via `npm install -g snyk` or ensure `npx` is available.")
         except Exception as e:
             results["errors"].append(f"snyk test failed: {str(e)}")
     
@@ -652,15 +752,29 @@ def scan_code_quality(repo_path: str, config: ScanConfig) -> Dict:
     if config.enable_semgrep:
         try:
             semgrep = shutil.which("semgrep")
+            # Prefer system semgrep, else try python -m semgrep, else try npx
+            run_cmd = None
             if semgrep:
+                run_cmd = [semgrep, "--config=auto", "--json", repo_path]
+            else:
+                # try python -m semgrep
+                try:
+                    run_cmd = [sys.executable, '-m', 'semgrep', '--config=auto', '--json', repo_path]
+                except Exception:
+                    run_cmd = None
+
+            if not run_cmd and (shutil.which('npx') or shutil.which('npm')):
+                run_cmd = ['npx', '--yes', 'semgrep', '--config=auto', '--json', repo_path]
+
+            if run_cmd:
                 logger.info("Running Semgrep...")
                 result = subprocess.run(
-                    [semgrep, "--config=auto", "--json", repo_path],
+                    run_cmd,
                     capture_output=True,
                     text=True,
                     timeout=config.default_timeout
                 )
-                
+
                 if result.stdout:
                     try:
                         data = json.loads(result.stdout)
@@ -669,9 +783,9 @@ def scan_code_quality(repo_path: str, config: ScanConfig) -> Dict:
                             "results": data.get("results", [])
                         })
                     except json.JSONDecodeError:
-                        pass
+                        results["errors"].append("semgrep output not JSON or parsing failed")
             else:
-                results["errors"].append("semgrep not installed")
+                results["errors"].append("semgrep not installed. Install via `pip install semgrep` or ensure `npx` is available.")
         except Exception as e:
             results["errors"].append(f"semgrep failed: {str(e)}")
     
