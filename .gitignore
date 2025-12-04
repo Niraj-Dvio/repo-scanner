@@ -4,3 +4,4 @@ pgdata/
 tmp_debug_repo/
 repos/
 backend/security_scan.log
+/backend/plugins/__pycache__/

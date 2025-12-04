@@ -166,6 +166,7 @@ npm run dev  # Terminal 2
 ### Technical
 
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System architecture and design patterns
+- **[BACKEND_STRUCTURE.md](./BACKEND_STRUCTURE.md)** - Backend module organization & plugin architecture
 
 ## 🏗️ Architecture
 
@@ -219,22 +220,33 @@ npm run dev  # Terminal 2
 
 ```
 repo-scanner/
-├── backend/
-│   ├── main.py                    # FastAPI application
-│   ├── scanner.py                 # Scanning logic & patterns
+├── backend/                        # Python/FastAPI backend
+│   ├── __init__.py
+│   ├── main.py                     # FastAPI app & HTTP routes
+│   ├── config.py                   # Configuration & logging setup
+│   ├── models.py                   # Data models (ScanResult, etc.)
+│   ├── scanner.py                  # Main scanning orchestration
+│   ├── db.py                       # Database models & operations
+│   ├── Dockerfile                  # Docker configuration
 │   ├── requirements.txt            # Python dependencies
-│   ├── Dockerfile                 # Docker configuration
+│   ├── plugins/                    # Modular scanning plugins
+│   │   ├── __init__.py
+│   │   ├── utils.py                # Common utilities (git, tools, files)
+│   │   ├── secrets.py              # Secret scanning (patterns, TruffleHog)
+│   │   ├── dependencies.py         # Dependency scanning (Python, Node.js)
+│   │   └── code_quality.py         # Code quality (Semgrep, Bandit)
 │   └── repos/                      # Scanned repositories (runtime)
 │
-├── frontend/
+├── frontend/                       # React + Vite frontend
 │   ├── src/
-│   │   ├── App.jsx                # Main app component
-│   │   ├── index.css              # Global styles
-│   │   ├── main.jsx               # Entry point
+│   │   ├── App.jsx                 # Main app component
+│   │   ├── index.css               # Global styles
+│   │   ├── main.jsx                # Entry point
+│   │   ├── assets/
 │   │   └── components/
 │   │       ├── SearchBar.jsx
 │   │       ├── RepoCard.jsx
-│   │       ├── ScanResults.jsx
+│   │       ├── ScanResults.jsx     # Dynamic tabs with results
 │   │       ├── ScanStatusModal.jsx
 │   │       ├── ErrorBoundary.jsx
 │   │       └── LoadingSpinner.jsx
@@ -242,12 +254,12 @@ repo-scanner/
 │   ├── vite.config.js
 │   └── README.md
 │
-├── docker-compose.yml              # Docker Compose orchestration
-├── INTEGRATION_GUIDE.md            # Setup guide
-├── FEATURES.md                     # Feature documentation
-├── ARCHITECTURE.md                 # Architecture documentation
-├── DESIGN_GUIDE.md                 # Design system
-├── UPDATE_SUMMARY.md               # What's new in v2.0
+├── docker-compose.yml              # Docker Compose orchestration (backend + postgres)
+├── ARCHITECTURE.md                 # System design & patterns
+├── INTEGRATION_GUIDE.md            # Setup & integration guide
+├── FEATURES.md                     # Complete feature list
+├── DESIGN_GUIDE.md                 # UI/UX design system
+├── UPDATE_SUMMARY.md               # v2.0 changes & enhancements
 └── README.md                       # This file
 ```
 
@@ -257,7 +269,7 @@ repo-scanner/
 2. **Browse** - View repositories with filters
 3. **Scan** - Initiate async scan with one click
 4. **Monitor** - Watch real-time scan progress
-5. **Analyze** - View detailed security report
+5. **Analyze** - View detailed security report by category
 6. **Export** - Download or share results
 
 ## 🔒 Security

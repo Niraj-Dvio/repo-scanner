@@ -1,40 +1,24 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import requests
 from pydantic import BaseModel, Field, validator
 from typing import Optional, Dict, List
 import uvicorn
-import logging
 from datetime import datetime
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import os
-import json
+import shutil
+import requests
 
-# SQLAlchemy for optional persistence
-from sqlalchemy import create_engine, Column, String, DateTime, JSON as SAJSON
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-
-# Import from enhanced scanner
-from scanner import (
-    scan_repository,
-    ScanConfig,
-    validate_repo_url,
-    sanitize_repo_name,
-    setup_logging,
-    BASE_PATH,
-    # Backward compatible imports
-    clone_repo,
-    run_secret_scan_legacy,
-    dependency_scan,
-    repo_summary
-)
+# Import from modular backend
+from config import ScanConfig, setup_logging, BASE_PATH
+from scanner import scan_repository
+from plugins.utils import validate_repo_url, sanitize_repo_name
+from db import init_db, save_scan_to_db, get_scan_from_db, delete_scan_from_db
 
 # Setup logging
-logger = setup_logging("INFO")
+logger = setup_logging("main")
 
 app = FastAPI(
     title="Repository Security Scanner API",
@@ -75,103 +59,11 @@ def get_repo_lock(repo_name: str) -> threading.Lock:
         return scan_locks[repo_name]
 
 
-# ---------------- Database (optional) ----------------
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@db:5432/scanner")
-engine = None
-SessionLocal = None
-Base = declarative_base()
-
-
-class ScanModel(Base):
-    __tablename__ = 'scans'
-    scan_id = Column(String, primary_key=True, index=True)
-    repo_url = Column(String, nullable=True)
-    status = Column(String, nullable=True)
-    result = Column(SAJSON, nullable=True)
-    created_at = Column(DateTime, nullable=True)
-    updated_at = Column(DateTime, nullable=True)
-
-
-def init_db():
-    global engine, SessionLocal
-    try:
-        engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-        SessionLocal = sessionmaker(bind=engine)
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database initialized")
-    except Exception as e:
-        logger.error(f"Database init failed: {e}")
-
-
-def save_scan_to_db(scan_id: str, repo_url: str = None, status: str = None, result: Dict = None):
-    if SessionLocal is None:
-        return
-    session = None
-    try:
-        session = SessionLocal()
-        now = datetime.utcnow()
-        obj = session.query(ScanModel).filter(ScanModel.scan_id == scan_id).one_or_none()
-        if obj is None:
-            obj = ScanModel(scan_id=scan_id, repo_url=repo_url, status=status, result=result, created_at=now, updated_at=now)
-            session.add(obj)
-        else:
-            if repo_url is not None:
-                obj.repo_url = repo_url
-            if status is not None:
-                obj.status = status
-            if result is not None:
-                obj.result = result
-            obj.updated_at = now
-        session.commit()
-    except Exception as e:
-        logger.error(f"Failed to save scan to DB: {e}")
-    finally:
-        if session:
-            session.close()
-
-
-def get_scan_from_db(scan_id: str):
-    if SessionLocal is None:
-        return None
-    session = None
-    try:
-        session = SessionLocal()
-        obj = session.query(ScanModel).filter(ScanModel.scan_id == scan_id).one_or_none()
-        if obj:
-            return {
-                "scan_id": obj.scan_id,
-                "repo_url": obj.repo_url,
-                "status": obj.status,
-                "result": obj.result,
-                "created_at": obj.created_at.isoformat() if obj.created_at else None,
-                "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
-            }
-    except Exception as e:
-        logger.error(f"Failed to read scan from DB: {e}")
-    finally:
-        if session:
-            session.close()
-    return None
-
-
-def delete_scan_from_db(scan_id: str):
-    if SessionLocal is None:
-        return
-    session = None
-    try:
-        session = SessionLocal()
-        obj = session.query(ScanModel).filter(ScanModel.scan_id == scan_id).one_or_none()
-        if obj:
-            session.delete(obj)
-            session.commit()
-    except Exception as e:
-        logger.error(f"Failed to delete scan from DB: {e}")
-    finally:
-        if session:
-            session.close()
-
 # Thread pool for background scans
 executor = ThreadPoolExecutor(max_workers=3)
+
+# Initialize database on startup
+init_db()
 
 # ---------------- MODELS ----------------
 class ScanRequest(BaseModel):
@@ -298,43 +190,7 @@ def get_repos(
         logger.error(f"Unexpected error fetching repos: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ---------------- SCAN REPO (Legacy - Synchronous) ----------------
-@app.post("/scan/legacy")
-def scan_repo_legacy(scan_req: ScanRequest):
-    """
-    Legacy synchronous scan endpoint (blocks until complete)
-    Use /scan for async scanning with better error handling
-    """
-    try:
-        repo_name = scan_req.repo_name or sanitize_repo_name(scan_req.repo_url)
-        
-        logger.info(f"Starting legacy scan for {repo_name}")
-        
-        # Clone repository
-        repo_path = clone_repo(scan_req.repo_url, repo_name)
-        
-        # Run scans
-        secrets = run_secret_scan_legacy(repo_path)
-        deps = dependency_scan(repo_path, timeout=scan_req.timeout)
-        summary = repo_summary(repo_path)
-        
-        result = {
-            "repo": repo_name,
-            "repo_url": scan_req.repo_url,
-            "summary": summary,
-            "secrets": secrets,
-            "dependencies": deps,
-            "scan_completed_at": datetime.utcnow().isoformat()
-        }
-        
-        logger.info(f"Legacy scan completed for {repo_name}")
-        return result
-        
-    except Exception as e:
-        logger.error(f"Legacy scan failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
-
-# ---------------- SCAN REPO (New - Asynchronous) ----------------
+# ---------------- SCAN REPO (Asynchronous) ----------------
 def run_scan_background(scan_id: str, repo_url: str, config: ScanConfig):
     """Background task to run repository scan"""
     repo_name = sanitize_repo_name(repo_url)
