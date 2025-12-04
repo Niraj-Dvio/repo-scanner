@@ -1,0 +1,160 @@
+2025-12-04 18:25:17,119 - scanner - INFO - Repository Security Scanner API starting up...
+2025-12-04 18:25:17,119 - scanner - INFO - CORS enabled for: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:3000']
+2025-12-04 18:25:25,854 - scanner - INFO - Fetched 3 repositories for user 'solilosblog'
+2025-12-04 18:25:37,774 - scanner - INFO - Scan queued: kheechmeriphoto_20251204_125537
+2025-12-04 18:25:37,798 - scanner - INFO - Background scan started for kheechmeriphoto_20251204_125537
+2025-12-04 18:25:37,800 - scanner - INFO - Starting scan for repository: https://github.com/solilosblog/kheechmeriphoto.git
+2025-12-04 18:25:38,141 - scanner - INFO - Cloning repository: https://github.com/solilosblog/kheechmeriphoto.git
+2025-12-04 18:25:38,155 - scanner - ERROR - Clone failed: Cmd('git') failed due to: '"kill_after_timeout" feature is not supported on Windows.'
+  cmdline: git clone --depth=1 --single-branch -v https://github.com/solilosblog/kheechmeriphoto.git ./repos\solilosblog_kheechmeriphoto_1567881e
+2025-12-04 18:25:38,155 - scanner - INFO - Background scan completed for kheechmeriphoto_20251204_125537
+2025-12-04 18:25:40,664 - scanner - INFO - Scan queued: kheechmeriphoto_20251204_125540
+2025-12-04 18:25:40,668 - scanner - INFO - Background scan started for kheechmeriphoto_20251204_125540
+2025-12-04 18:25:40,669 - scanner - INFO - Starting scan for repository: https://github.com/solilosblog/kheechmeriphoto.git
+2025-12-04 18:25:40,686 - scanner - INFO - Cloning repository: https://github.com/solilosblog/kheechmeriphoto.git
+2025-12-04 18:25:40,690 - scanner - ERROR - Clone failed: Cmd('git') failed due to: '"kill_after_timeout" feature is not supported on Windows.'
+  cmdline: git clone --depth=1 --single-branch -v https://github.com/solilosblog/kheechmeriphoto.git ./repos\solilosblog_kheechmeriphoto_1567881e
+2025-12-04 18:25:40,692 - scanner - INFO - Background scan completed for kheechmeriphoto_20251204_125540
+2025-12-04 18:25:41,508 - scanner - INFO - Scan queued: kheechmeriphoto_20251204_125541
+2025-12-04 18:25:41,514 - scanner - INFO - Background scan started for kheechmeriphoto_20251204_125541
+2025-12-04 18:25:41,516 - scanner - INFO - Starting scan for repository: https://github.com/solilosblog/kheechmeriphoto.git
+2025-12-04 18:25:41,520 - scanner - INFO - Cloning repository: https://github.com/solilosblog/kheechmeriphoto.git
+2025-12-04 18:25:41,528 - scanner - ERROR - Clone failed: Cmd('git') failed due to: '"kill_after_timeout" feature is not supported on Windows.'
+  cmdline: git clone --depth=1 --single-branch -v https://github.com/solilosblog/kheechmeriphoto.git ./repos\solilosblog_kheechmeriphoto_1567881e
+2025-12-04 18:25:41,529 - scanner - INFO - Background scan completed for kheechmeriphoto_20251204_125541
+2025-12-04 18:32:18,796 - scanner - INFO - Repository Security Scanner API shutting down...
+2025-12-04 18:32:20,947 - scanner - INFO - Repository Security Scanner API starting up...
+2025-12-04 18:32:20,948 - scanner - INFO - CORS enabled for: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:3000']
+2025-12-04 18:33:18,729 - scanner - INFO - Repository Security Scanner API shutting down...
+2025-12-04 18:33:20,206 - scanner - INFO - Repository Security Scanner API starting up...
+2025-12-04 18:33:20,206 - scanner - INFO - CORS enabled for: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:3000']
+2025-12-04 18:33:40,964 - scanner - INFO - Scan queued: kheechmeriphoto_20251204_130340
+2025-12-04 18:33:40,985 - scanner - INFO - Background scan started for kheechmeriphoto_20251204_130340
+2025-12-04 18:33:40,985 - scanner - INFO - Starting scan for repository: https://github.com/solilosblog/kheechmeriphoto.git
+2025-12-04 18:33:41,312 - scanner - INFO - Cloning repository: https://github.com/solilosblog/kheechmeriphoto.git
+2025-12-04 18:33:42,411 - scanner - INFO - Scan queued: kheechmeriphoto_20251204_130342
+2025-12-04 18:33:42,411 - scanner - INFO - Background scan started for kheechmeriphoto_20251204_130342
+2025-12-04 18:33:42,415 - scanner - INFO - Starting scan for repository: https://github.com/solilosblog/kheechmeriphoto.git
+2025-12-04 18:33:42,416 - scanner - WARNING - Repository path exists, removing: ./repos\solilosblog_kheechmeriphoto_1567881e
+2025-12-04 18:33:42,465 - scanner - INFO - Cloning repository: https://github.com/solilosblog/kheechmeriphoto.git
+2025-12-04 18:33:43,232 - scanner - INFO - Successfully cloned repository to ./repos\solilosblog_kheechmeriphoto_1567881e
+2025-12-04 18:33:43,232 - scanner - INFO - Starting secret scan...
+2025-12-04 18:33:43,243 - scanner - INFO - Running TruffleHog scan...
+2025-12-04 18:33:43,590 - scanner - INFO - TruffleHog found 0 issues
+2025-12-04 18:33:43,593 - scanner - INFO - Scanning 2 sensitive files...
+2025-12-04 18:33:43,710 - scanner - INFO - Found 0 unique secrets
+2025-12-04 18:33:43,710 - scanner - INFO - Starting dependency scan...
+2025-12-04 18:33:44,129 - scanner - ERROR - Clone failed: Cmd('git') failed due to: exit code(128)
+  cmdline: git clone --depth=1 --single-branch -v https://github.com/solilosblog/kheechmeriphoto.git ./repos\solilosblog_kheechmeriphoto_1567881e
+  stderr: 'Cloning into './repos\solilosblog_kheechmeriphoto_1567881e'...
+POST git-upload-pack (428 bytes)
+POST git-upload-pack (347 bytes)
+fatal: multiple updates for ref 'refs/remotes/origin/main' not allowed
+'
+2025-12-04 18:33:44,129 - scanner - INFO - Cleaned up repository: ./repos\solilosblog_kheechmeriphoto_1567881e
+2025-12-04 18:33:44,130 - scanner - INFO - Background scan completed for kheechmeriphoto_20251204_130342
+2025-12-04 18:33:46,916 - scanner - INFO - Generating repository summary...
+2025-12-04 18:33:46,916 - scanner - INFO - Scan completed in 5.93s - Found 0 secrets
+2025-12-04 18:33:46,916 - scanner - INFO - Cleaned up repository: ./repos\solilosblog_kheechmeriphoto_1567881e
+2025-12-04 18:33:46,916 - scanner - INFO - Background scan completed for kheechmeriphoto_20251204_130340
+2025-12-04 18:33:57,199 - scanner - INFO - Scan queued: omnigaurd-java_20251204_130357
+2025-12-04 18:33:57,215 - scanner - INFO - Background scan started for omnigaurd-java_20251204_130357
+2025-12-04 18:33:57,217 - scanner - INFO - Starting scan for repository: https://github.com/solilosblog/omnigaurd-java.git
+2025-12-04 18:33:57,224 - scanner - INFO - Cloning repository: https://github.com/solilosblog/omnigaurd-java.git
+2025-12-04 18:33:58,655 - scanner - INFO - Scan queued: omnigaurd-java_20251204_130358
+2025-12-04 18:33:58,659 - scanner - INFO - Background scan started for omnigaurd-java_20251204_130358
+2025-12-04 18:33:58,659 - scanner - INFO - Starting scan for repository: https://github.com/solilosblog/omnigaurd-java.git
+2025-12-04 18:33:58,661 - scanner - WARNING - Repository path exists, removing: ./repos\solilosblog_omnigaurd-java_e3e98565
+2025-12-04 18:33:58,682 - scanner - INFO - Cloning repository: https://github.com/solilosblog/omnigaurd-java.git
+2025-12-04 18:33:58,813 - scanner - ERROR - Clone failed: Cmd('git') failed due to: exit code(128)
+  cmdline: git clone --depth=1 --single-branch -v https://github.com/solilosblog/omnigaurd-java.git ./repos\solilosblog_omnigaurd-java_e3e98565
+  stderr: 'Cloning into './repos\solilosblog_omnigaurd-java_e3e98565'...
+POST git-upload-pack (185 bytes)
+POST git-upload-pack (254 bytes)
+fatal: Unable to create 'C:/Users/DVIO-IT/Desktop/DVIO ONE/repo-scanner/backend/repos/solilosblog_omnigaurd-java_e3e98565/.git/shallow.lock': No such file or directory
+'
+2025-12-04 18:33:58,837 - scanner - INFO - Cleaned up repository: ./repos\solilosblog_omnigaurd-java_e3e98565
+2025-12-04 18:33:58,842 - scanner - INFO - Background scan completed for omnigaurd-java_20251204_130357
+2025-12-04 18:34:01,419 - scanner - INFO - Successfully cloned repository to ./repos\solilosblog_omnigaurd-java_e3e98565
+2025-12-04 18:34:01,419 - scanner - INFO - Starting secret scan...
+2025-12-04 18:34:01,424 - scanner - INFO - Running TruffleHog scan...
+2025-12-04 18:34:01,763 - scanner - INFO - TruffleHog found 0 issues
+2025-12-04 18:34:01,763 - scanner - INFO - Scanning 4 sensitive files...
+2025-12-04 18:34:01,858 - scanner - INFO - Found 2 unique secrets
+2025-12-04 18:34:01,859 - scanner - INFO - Starting dependency scan...
+2025-12-04 18:34:04,300 - scanner - INFO - Generating repository summary...
+2025-12-04 18:34:04,302 - scanner - INFO - Scan completed in 5.64s - Found 2 secrets
+2025-12-04 18:34:04,317 - scanner - INFO - Cleaned up repository: ./repos\solilosblog_omnigaurd-java_e3e98565
+2025-12-04 18:34:04,325 - scanner - INFO - Background scan completed for omnigaurd-java_20251204_130358
+2025-12-04 18:34:21,101 - scanner - INFO - Scan queued: omnigaurd-java_20251204_130421
+2025-12-04 18:34:21,105 - scanner - INFO - Background scan started for omnigaurd-java_20251204_130421
+2025-12-04 18:34:21,105 - scanner - INFO - Starting scan for repository: https://github.com/solilosblog/omnigaurd-java.git
+2025-12-04 18:34:21,108 - scanner - WARNING - Repository path exists, removing: ./repos\solilosblog_omnigaurd-java_e3e98565
+2025-12-04 18:34:21,117 - scanner - INFO - Cloning repository: https://github.com/solilosblog/omnigaurd-java.git
+2025-12-04 18:34:21,224 - scanner - ERROR - Clone failed: Cmd('git') failed due to: exit code(128)
+  cmdline: git clone --depth=1 --single-branch -v https://github.com/solilosblog/omnigaurd-java.git ./repos\solilosblog_omnigaurd-java_e3e98565
+  stderr: 'fatal: destination path './repos\solilosblog_omnigaurd-java_e3e98565' already exists and is not an empty directory.
+'
+2025-12-04 18:34:21,229 - scanner - INFO - Cleaned up repository: ./repos\solilosblog_omnigaurd-java_e3e98565
+2025-12-04 18:34:21,230 - scanner - INFO - Background scan completed for omnigaurd-java_20251204_130421
+2025-12-04 18:34:29,804 - scanner - INFO - Scan queued: omnigaurd-java_20251204_130429
+2025-12-04 18:34:29,810 - scanner - INFO - Background scan started for omnigaurd-java_20251204_130429
+2025-12-04 18:34:29,814 - scanner - INFO - Starting scan for repository: https://github.com/solilosblog/omnigaurd-java.git
+2025-12-04 18:34:29,818 - scanner - WARNING - Repository path exists, removing: ./repos\solilosblog_omnigaurd-java_e3e98565
+2025-12-04 18:34:29,852 - scanner - INFO - Cloning repository: https://github.com/solilosblog/omnigaurd-java.git
+2025-12-04 18:34:29,950 - scanner - ERROR - Clone failed: Cmd('git') failed due to: exit code(128)
+  cmdline: git clone --depth=1 --single-branch -v https://github.com/solilosblog/omnigaurd-java.git ./repos\solilosblog_omnigaurd-java_e3e98565
+  stderr: 'fatal: destination path './repos\solilosblog_omnigaurd-java_e3e98565' already exists and is not an empty directory.
+'
+2025-12-04 18:34:29,951 - scanner - INFO - Cleaned up repository: ./repos\solilosblog_omnigaurd-java_e3e98565
+2025-12-04 18:34:29,951 - scanner - INFO - Background scan completed for omnigaurd-java_20251204_130429
+2025-12-04 18:35:02,438 - scanner - INFO - Repository Security Scanner API shutting down...
+2025-12-04 18:47:39,300 - scanner - INFO - Repository Security Scanner API starting up...
+2025-12-04 18:47:39,300 - scanner - INFO - CORS enabled for: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:3000']
+2025-12-04 18:47:50,434 - scanner - INFO - Fetched 36 repositories for user 'Niraj-22'
+2025-12-04 18:47:57,767 - scanner - INFO - Scan queued: travel-assistant_20251204_131757
+2025-12-04 18:47:57,783 - scanner - INFO - Background scan started for travel-assistant_20251204_131757
+2025-12-04 18:47:57,787 - scanner - INFO - Starting scan for repository: https://github.com/Niraj-22/travel-assistant.git
+2025-12-04 18:47:58,093 - scanner - INFO - Cloning repository: https://github.com/Niraj-22/travel-assistant.git
+2025-12-04 18:48:01,294 - scanner - INFO - Successfully cloned repository to ./repos\Niraj-22_travel-assistant_1db49386
+2025-12-04 18:48:01,294 - scanner - INFO - Starting secret scan...
+2025-12-04 18:48:01,307 - scanner - INFO - Running TruffleHog scan...
+2025-12-04 18:48:02,089 - scanner - INFO - TruffleHog found 0 issues
+2025-12-04 18:48:02,093 - scanner - INFO - Scanning 5 sensitive files...
+2025-12-04 18:48:02,244 - scanner - INFO - Found 0 unique secrets
+2025-12-04 18:48:02,244 - scanner - INFO - Starting dependency scan...
+2025-12-04 18:48:07,676 - scanner - INFO - Running npm audit...
+2025-12-04 18:48:12,991 - scanner - INFO - Generating repository summary...
+2025-12-04 18:48:13,005 - scanner - INFO - Scan completed in 15.22s - Found 0 secrets
+2025-12-04 18:48:13,331 - scanner - INFO - Cleaned up repository: ./repos\Niraj-22_travel-assistant_1db49386
+2025-12-04 18:48:13,337 - scanner - INFO - Background scan completed for travel-assistant_20251204_131757
+2025-12-04 18:49:25,532 - scanner - INFO - Scan queued: blog-frontend_20251204_131925
+2025-12-04 18:49:25,542 - scanner - INFO - Background scan started for blog-frontend_20251204_131925
+2025-12-04 18:49:25,559 - scanner - INFO - Starting scan for repository: https://github.com/Niraj-22/blog-frontend.git
+2025-12-04 18:49:25,563 - scanner - INFO - Cloning repository: https://github.com/Niraj-22/blog-frontend.git
+2025-12-04 18:49:27,850 - scanner - INFO - Successfully cloned repository to ./repos\Niraj-22_blog-frontend_4db3894d
+2025-12-04 18:49:27,850 - scanner - INFO - Starting secret scan...
+2025-12-04 18:49:28,046 - scanner - INFO - Running TruffleHog scan...
+2025-12-04 18:49:30,532 - scanner - INFO - TruffleHog found 0 issues
+2025-12-04 18:49:30,532 - scanner - INFO - Scanning 3 sensitive files...
+2025-12-04 18:49:30,766 - scanner - INFO - Found 0 unique secrets
+2025-12-04 18:49:30,766 - scanner - INFO - Starting dependency scan...
+2025-12-04 18:49:37,116 - scanner - INFO - Running npm audit...
+2025-12-04 18:49:42,616 - scanner - INFO - Generating repository summary...
+2025-12-04 18:49:42,621 - scanner - INFO - Scan completed in 17.06s - Found 0 secrets
+2025-12-04 18:49:42,694 - scanner - INFO - Cleaned up repository: ./repos\Niraj-22_blog-frontend_4db3894d
+2025-12-04 18:49:42,694 - scanner - INFO - Background scan completed for blog-frontend_20251204_131925
+2025-12-04 18:50:13,013 - scanner - INFO - Fetched 3 repositories for user 'solilosblog'
+2025-12-04 18:50:15,675 - scanner - INFO - Scan queued: omnigaurd-java_20251204_132015
+2025-12-04 18:50:15,687 - scanner - INFO - Background scan started for omnigaurd-java_20251204_132015
+2025-12-04 18:50:15,689 - scanner - INFO - Starting scan for repository: https://github.com/solilosblog/omnigaurd-java.git
+2025-12-04 18:50:15,690 - scanner - WARNING - Repository path exists, removing: ./repos\solilosblog_omnigaurd-java_e3e98565
+2025-12-04 18:50:15,700 - scanner - INFO - Cloning repository: https://github.com/solilosblog/omnigaurd-java.git
+2025-12-04 18:50:15,842 - scanner - ERROR - Clone failed: Cmd('git') failed due to: exit code(128)
+  cmdline: git clone --depth=1 --single-branch -v https://github.com/solilosblog/omnigaurd-java.git ./repos\solilosblog_omnigaurd-java_e3e98565
+  stderr: 'fatal: destination path './repos\solilosblog_omnigaurd-java_e3e98565' already exists and is not an empty directory.
+'
+2025-12-04 18:50:15,846 - scanner - INFO - Cleaned up repository: ./repos\solilosblog_omnigaurd-java_e3e98565
+2025-12-04 18:50:15,846 - scanner - INFO - Background scan completed for omnigaurd-java_20251204_132015
+2025-12-04 21:46:10,616 - scanner - INFO - Repository Security Scanner API starting up...
+2025-12-04 21:46:10,616 - scanner - INFO - CORS enabled for: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:3000']
