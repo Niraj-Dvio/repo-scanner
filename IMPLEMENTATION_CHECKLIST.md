@@ -110,10 +110,10 @@
 - [x] **DESIGN_GUIDE.md** - UI/UX design system
 - [x] **frontend/FRONTEND_README.md** - Frontend specifics
 
-### Setup Utilities
+### Deployment
 
-- [x] **quickstart.sh** - Linux/Mac setup script
-- [x] **quickstart.bat** - Windows setup script
+- [x] **docker-compose.yml** - Multi-container orchestration
+- [x] **backend/Dockerfile** - Backend containerization
 
 ## 🎨 UI/UX Improvements
 
@@ -317,8 +317,8 @@
 - DESIGN_GUIDE.md
 - UPDATE_SUMMARY.md
 - README.md
-- quickstart.sh
-- quickstart.bat
+- docker-compose.yml
+- backend/Dockerfile
 
 ### Modified Files (5)
 
@@ -404,10 +404,10 @@ Security:                 ✅ 100%
 - backend/main.py - API server
 - backend/scanner.py - Scanning logic
 
-### Setup Scripts
+### Deployment
 
-- quickstart.sh - Automated setup (Linux/Mac)
-- quickstart.bat - Automated setup (Windows)
+- docker-compose.yml - Multi-container orchestration
+- backend/Dockerfile - Backend containerization
 
 ---
 

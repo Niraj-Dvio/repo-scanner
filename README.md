@@ -102,49 +102,46 @@ RepoGuard Scanner is a comprehensive security analysis platform for GitHub repos
 
 ### Prerequisites
 
-- Node.js 16+
-- Python 3.8+
+- Docker & Docker Compose
 - Git
 
-### Installation
+### Installation & Running
 
-#### Option 1: Automated Setup
+**Using Docker (Recommended):**
 
 ```bash
-# Linux/Mac
-chmod +x quickstart.sh
-./quickstart.sh
+# Start the application with Docker Compose
+docker compose up -d
 
-# Windows
-quickstart.bat
+# Access the application:
+# - Frontend: http://localhost:5173
+# - Backend API: http://localhost:8000
+# - API Docs: http://localhost:8000/docs
+
+# View logs
+docker compose logs -f backend
+
+# Stop the application
+docker compose down
 ```
 
-#### Option 2: Manual Setup
+**Manual Setup (without Docker):**
+
+Prerequisites:
+
+- Node.js 16+
+- Python 3.8+
 
 ```bash
 # Backend setup
 cd backend
 pip install -r requirements.txt
+python main.py  # Terminal 1
 
-# Frontend setup
+# Frontend setup (in another terminal)
 cd frontend
 npm install
-```
-
-### Running the Application
-
-**Terminal 1 - Start Backend:**
-
-```bash
-cd backend
-python main.py
-```
-
-**Terminal 2 - Start Frontend:**
-
-```bash
-cd frontend
-npm run dev
+npm run dev  # Terminal 2
 ```
 
 **Access the Application:**
@@ -224,9 +221,10 @@ npm run dev
 repo-scanner/
 ├── backend/
 │   ├── main.py                    # FastAPI application
-│   ├── scanner.py                 # Scanning logic
+│   ├── scanner.py                 # Scanning logic & patterns
 │   ├── requirements.txt            # Python dependencies
-│   └── __pycache__/
+│   ├── Dockerfile                 # Docker configuration
+│   └── repos/                      # Scanned repositories (runtime)
 │
 ├── frontend/
 │   ├── src/
@@ -242,15 +240,15 @@ repo-scanner/
 │   │       └── LoadingSpinner.jsx
 │   ├── package.json
 │   ├── vite.config.js
-│   └── FRONTEND_README.md
+│   └── README.md
 │
+├── docker-compose.yml              # Docker Compose orchestration
 ├── INTEGRATION_GUIDE.md            # Setup guide
 ├── FEATURES.md                     # Feature documentation
 ├── ARCHITECTURE.md                 # Architecture documentation
 ├── DESIGN_GUIDE.md                 # Design system
 ├── UPDATE_SUMMARY.md               # What's new in v2.0
-├── quickstart.sh                   # Linux/Mac setup
-└── quickstart.bat                  # Windows setup
+└── README.md                       # This file
 ```
 
 ## 🔄 Workflow

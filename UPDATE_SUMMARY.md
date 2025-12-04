@@ -108,9 +108,9 @@ Root Documentation
 ├── ARCHITECTURE.md (NEW)
 └── FRONTEND_README.md (NEW)
 
-Setup Scripts
-├── quickstart.sh (NEW)
-└── quickstart.bat (NEW)
+Docker Configuration
+├── docker-compose.yml (NEW)
+└── backend/Dockerfile (NEW)
 ```
 
 ### Updated Files
@@ -267,16 +267,16 @@ selectedScanId: string | null
 ### Prerequisites
 
 - Node.js 16+
-- Python 3.8+
+- Docker & Docker Compose
 - Git
 
-### Installation
+### Installation & Running
 
 ```bash
-# Run setup script
-./quickstart.sh  # or quickstart.bat on Windows
+# Start with Docker (Recommended)
+docker compose up -d
 
-# Or manually:
+# Or manually (requires Node.js 16+, Python 3.8+):
 cd backend && pip install -r requirements.txt
 cd frontend && npm install
 ```
@@ -284,6 +284,11 @@ cd frontend && npm install
 ### Start Development
 
 ```bash
+# Using Docker (Recommended)
+docker compose up -d
+# Access: Frontend http://localhost:5173, Backend http://localhost:8000
+
+# Or manually:
 # Terminal 1 - Backend
 cd backend
 python main.py
@@ -379,8 +384,8 @@ repo-scanner/
 ├── INTEGRATION_GUIDE.md (NEW)
 ├── FEATURES.md (NEW)
 ├── ARCHITECTURE.md (NEW)
-├── quickstart.sh (NEW)
-└── quickstart.bat (NEW)
+├── docker-compose.yml (NEW)
+└── backend/Dockerfile (NEW)
 ```
 
 ## 🎓 Learning Resources
